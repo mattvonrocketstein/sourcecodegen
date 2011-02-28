@@ -63,7 +63,7 @@ def binary(symbol, priority):
             yield left
             yield ' %s ' % symbol
             yield right
-            
+
     return visit
 
 def n_ary(symbol, priority):
@@ -106,7 +106,7 @@ class CodeStream(object):
             self.out(text)
             self.stream.write('\n')
         self.clear = True
-    
+
     def out(self, text):
         if self.clear is True:
             indentation = self.indentation_string * self.indentation
@@ -116,16 +116,17 @@ class CodeStream(object):
 
     def getvalue(self):
         return self.stream.getvalue()
-    
+
 class ASTVisitor(object):
     def __init__(self, tree):
         self.tree = tree
 
     def __call__(self):
-        stream = CodeStream()
-        stream(self.visit(self.tree))            
-        return stream.getvalue()
-        
+        """ MVR: changed function to store stream reference in self """
+        self.stream=CodeStream()
+        self.stream(self.visit(self.tree))
+        return self.stream.getvalue()
+
     def visit(self, node):
         name = node.__class__.__name__
 
@@ -152,7 +153,7 @@ class ASTVisitor(object):
 
     def visitStmt(self, node):
         yield tuple(self.visit(child) for child in node.nodes if child is not None)
-        
+
     def visitIf(self, node):
         for index, test in enumerate(node.tests):
             if index == 0:
@@ -165,7 +166,7 @@ class ASTVisitor(object):
             yield self.visit(condition)
             yield ":"
             yield self.visit(statement),
-            
+
         if node.else_:
             yield "else:"
             yield self.visit(node.else_),
@@ -185,7 +186,7 @@ class ASTVisitor(object):
     def visitAssign(self, node):
         for index, ass in enumerate(tuple(node.nodes)):
             yield self.visit(ass)
-                
+
             if index < len(tuple(node.nodes)) - 1:
                 yield " = "
         yield " = "
@@ -198,7 +199,7 @@ class ASTVisitor(object):
         yield node.name
         if node.flags == 'OP_DELETE':
             yield None
-            
+
     def visitFunction(self, node):
         if node.decorators:
             yield self.visit(node.decorators)
@@ -223,7 +224,7 @@ class ASTVisitor(object):
                     yield self.visit(default)
             else:
                 yield format_argnames(argnames)
-                            
+
         if node.varargs:
             if len(node.argnames) > 1:
                 yield ", "
@@ -235,6 +236,9 @@ class ASTVisitor(object):
             yield "**%s" % kwargs
 
         yield "):"
+        if node.doc:
+            yield None
+            yield self.stream.indentation_string + triple_quote(node.doc)
         yield self.visit(node.code),
 
     @prioritize(0)
@@ -328,7 +332,7 @@ class ASTVisitor(object):
         yield self.visit(node.list)
         for _if in node.ifs:
             yield self.visit(_if)
-            
+
     def visitListCompIf(self, node):
         yield " if "
         yield self.visit(node.test)
@@ -376,7 +380,7 @@ class ASTVisitor(object):
         yield "while "
         yield self.visit(node.test)
         yield ":"
- 
+
         yield self.visit(node.body),
 
         if node.else_ is not None:
@@ -403,7 +407,7 @@ class ASTVisitor(object):
         if node.else_:
             yield "else:"
             yield self.visit(node.else_),
-    
+
     def visitTryFinally(self, node):
         if version < (2,5):
             yield "try:"
@@ -426,7 +430,7 @@ class ASTVisitor(object):
                     yield ", "
             yield ")"
         yield ":"
-        
+
         if node.doc:
             yield triple_quote(node.doc), self.visit(node.code)
         else:
@@ -511,7 +515,7 @@ class ASTVisitor(object):
             yield self.visit(item)
             if index < len(tuple(node)) - 1:
                 yield ":"
-                
+
     def visitExec(self, node):
         yield "exec "
         yield self.visit(node.expr)
@@ -609,7 +613,7 @@ class ASTVisitor(object):
     visitUnaryAdd = unary('+', 8)
     visitUnarySub = unary('-', 8)
     visitMul = binary('*', 7)
-    visitMod = binary('%', 7)    
+    visitMod = binary('%', 7)
     visitDiv = binary('/', 7)
 
     visitAdd = binary('+', 6)
@@ -621,10 +625,7 @@ class ASTVisitor(object):
     visitBitand = n_ary('&', 4)
     visitBitxor = n_ary('^', 3)
     visitBitor = n_ary('|', 2)
-    
+
     visitNot = unary('not ', 1)
     visitAnd = n_ary('and', 0)
     visitOr = n_ary('or', -1)
-
-    
-
